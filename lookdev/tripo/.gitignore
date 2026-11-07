@@ -1,0 +1,4 @@
+# Generations are large and most get thrown away, and the reference sheets can be rendered again.
+# Copy what you keep into assets/.
+out/
+refs/

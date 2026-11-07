@@ -1,0 +1,38 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 7140
+    },
+    {
+      "name": "browser",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "7141",
+        "--strictPort"
+      ],
+      "port": 7141
+    },
+    {
+      "name": "lookdev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--config",
+        "lookdev/vite.config.ts",
+        "--port",
+        "7150",
+        "--strictPort"
+      ],
+      "port": 7150
+    }
+  ]
+}

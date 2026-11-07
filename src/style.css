@@ -1,0 +1,728 @@
+:root {
+  color-scheme: dark;
+  /* Dust Haze, from lookdev/directions.ts, with the logo's die-cut black edges. */
+  --ink: #120905;
+  --ink-soft: #4a2715;
+  --paper: #f3dfb8;
+  --paper-deep: #e8be58;
+  --wood: #3a2013;
+  --wood-dark: #120905;
+  --wood-light: #a5602f;
+  --brass: #ffc33d;
+  --gold: #ffc33d;
+  --ember: #d9762f;
+  --red: #c8352c;
+  --blood: #c8352c;
+  --teal: #1f8fa8;
+  --cream: #fff4d8;
+  --display: "Rye", "Rockwell", Georgia, serif;
+  --body: "Bitter", Georgia, serif;
+  font-family: var(--body);
+}
+
+* { box-sizing: border-box; }
+/* The system cursor never shows: only the game's own crosshairs do. */
+html, body, #root, #root * { cursor: none !important; }
+#root .dev, #root .dev * { cursor: default !important; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: #120a05; color: var(--cream); overflow: hidden; }
+#root { position: relative; overflow: hidden; user-select: none; }
+
+.view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+
+/* The game fills the screen, until the camera preview takes the right-hand quarter. */
+.stage { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform-origin: left center; }
+#root[data-camera="on"] { background: var(--wood); }
+#root[data-camera="on"] .stage { transform: scale(0.75); }
+.camera-panel {
+  display: none; position: absolute; right: 0; top: 0; bottom: 0; width: 25%; padding: 24px;
+  flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+}
+#root[data-camera="on"] .camera-panel { display: flex; }
+.camera-frame {
+  position: relative; width: 100%; aspect-ratio: 3 / 4; overflow: hidden; background: #000;
+  border: 7px solid var(--ink); border-radius: 6px;
+  box-shadow: 0 0 0 5px var(--cream), 0 13px 0 5px var(--ink);
+}
+/* Mirrored, so moving right looks like moving right. */
+.camera-frame video { display: block; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.camera-status {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center;
+  font: 800 28px/1.2 var(--body); color: var(--cream);
+}
+.camera-status[hidden] { display: none; }
+.camera-title { font: 400 36px/1.1 var(--display); color: var(--gold); text-align: center; text-shadow: 0 3px 0 var(--ink); }
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Everything in the duel starts hidden; each phase switches on what it needs. */
+.reticle, .plate, .centre, .ribbon, .holler, .banner, .caption, .sign, .shout, .intro, .bars { display: none; }
+.hud[data-phase="aim"] :is(.plate, .centre, .ribbon, .holler, .reticle, .banner) { display: block; }
+.hud[data-phase="rush"]:not([data-rushcam="on"]) .banner { display: block; }
+.hud[data-phase="rush"][data-gun="up"] .reticle { display: block; width: 6%; }
+.rush { display: none; position: absolute; inset: 0; pointer-events: none; }
+.hud[data-phase="rush"]:not([data-rushcam="on"]) .rush { display: block; }
+.rush-hearts { position: absolute; left: 38px; top: 26px; display: flex; gap: 10px; }
+.rush-heart { width: 74px; height: 68px; overflow: visible; }
+.rush-heart path { fill: var(--red); stroke: var(--ink); stroke-width: 9; paint-order: stroke; filter: drop-shadow(0 4px 0 var(--ink)) drop-shadow(0 0 2px var(--cream)); }
+.rush-heart.lost path { fill: #3a2a26; }
+.rush-heart.lost { animation: heart-lost 380ms cubic-bezier(.2,1.5,.5,1) both; }
+@keyframes heart-lost { 0% { transform: scale(1.7); } 100% { transform: scale(0.82); } }
+.rush-wave { position: absolute; left: 0; right: 0; top: 104px; text-align: center; font: 400 32px/1.2 var(--display); color: var(--cream); -webkit-text-stroke: 7px #000; paint-order: stroke fill; }
+/* Points popping up on a kill, and flying up to the tally. */
+.rush-floats { position: absolute; inset: 0; pointer-events: none; z-index: 30; }
+.rush-float { position: absolute; display: flex; flex-direction: column; align-items: center; white-space: nowrap; transform: translate(-50%, -50%); }
+/* Chunky, stacked arcade numbers: a thick black edge, then a block of colour dropping away below it. */
+.rush-float span {
+  font: 900 calc(84px * var(--pop, 1))/1 var(--body);
+  letter-spacing: -0.02em;
+  color: var(--gold);
+  -webkit-text-stroke: 12px #000;
+  paint-order: stroke fill;
+  text-shadow: 0 7px 0 #c1551a, 0 13px 0 #000;
+}
+.rush-float b {
+  font: 400 calc(92px * var(--pop, 1))/1 var(--display);
+  color: #fff3a8;
+  -webkit-text-stroke: 13px #000;
+  paint-order: stroke fill;
+  text-shadow: 0 8px 0 #d62c12, 0 14px 0 #000;
+  margin-bottom: 2px;
+}
+.rush-float.big span { color: #fff; text-shadow: 0 7px 0 #e0861c, 0 13px 0 #000; }
+/* A hard burst of rays behind the big ones. */
+.rush-float.big::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: 420px;
+  height: 420px;
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(#ffb02e 0 14deg, transparent 14deg 30deg);
+  clip-path: polygon(50% 0, 60% 26%, 88% 12%, 74% 40%, 100% 50%, 74% 60%, 88% 88%, 60% 74%, 50% 100%, 40% 74%, 12% 88%, 26% 60%, 0 50%, 26% 40%, 12% 12%, 40% 26%);
+  animation: float-rays 420ms ease-out both;
+}
+@keyframes float-rays { from { opacity: 1; transform: translate(-50%, -50%) scale(0.25) rotate(-20deg); } to { opacity: 0; transform: translate(-50%, -50%) scale(1.1) rotate(16deg); } }
+/* The score meter jumps and brightens on each kill. */
+.rush-scorebox { position: absolute; left: 50%; top: 16px; min-width: 260px; transform: translateX(-50%); padding: 5px 20px 7px; text-align: center; background: var(--ink); box-shadow: 0 0 0 4px var(--cream), 0 6px 0 4px rgb(0 0 0 / 0.5); border-radius: 8px; }
+.rush-scorebox small { display: block; font: 800 16px/1 var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--cream); }
+.rush-score { font: 900 56px/1.05 var(--body); color: var(--gold); font-variant-numeric: tabular-nums; }
+.rush-multiplier { position: absolute; right: -46px; top: 18px; font: 400 40px/1 var(--display); color: #ff8a3c; -webkit-text-stroke: 7px #000; paint-order: stroke fill; }
+.rush-scorebox.hit { animation: score-hit 300ms cubic-bezier(.2,1.6,.5,1) both; }
+@keyframes score-hit { 0% { transform: translateX(-50%) scale(1.4) rotate(-2deg); background: #d62c12; } 35% { background: #d62c12; } 100% { transform: translateX(-50%) scale(1); background: var(--ink); } }
+.rush-ammo { position: absolute; left: 44px; top: 106px; display: flex; gap: 8px; }
+.rush-ammo i { display: block; width: 18px; height: 40px; border-radius: 9px 9px 3px 3px; background: var(--gold); box-shadow: 0 0 0 3px #000; transition: background 120ms, transform 120ms; }
+.rush-ammo.many { gap: 5px; }
+.rush-ammo.many i { width: 11px; height: 30px; box-shadow: 0 0 0 2px #000; }
+.rush-ammo i.spent { background: #3a2a26; transform: scale(0.85); }
+.rush-ammo.reloading i { animation: bullet-in 500ms ease-out both; }
+@keyframes bullet-in { from { transform: translateY(-14px); opacity: 0.2; } }
+.rush-deadeye { position: absolute; right: 200px; top: 30px; width: 270px; text-align: right; }
+.rush-deadeye small { display: block; margin-bottom: 4px; font: 800 18px/1 var(--body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--cream); -webkit-text-stroke: 4px #000; paint-order: stroke fill; }
+.rush-deadeye > div { height: 18px; background: var(--ink); border: 3px solid var(--cream); border-radius: 5px; overflow: hidden; }
+.rush-deadeye i { display: block; height: 100%; width: 0; background: var(--teal); }
+.hud[data-deadeye="ready"] .rush-deadeye i { background: var(--gold); }
+.rush-note { position: absolute; left: 0; right: 0; bottom: 92px; text-align: center; font: 400 52px/1 var(--display); color: var(--gold); -webkit-text-stroke: 9px #000; paint-order: stroke fill; animation: word-pulse 520ms ease-in-out infinite; }
+.rush-note[hidden] { display: none; }
+.rush-note.big { bottom: 150px; font-size: 92px; -webkit-text-stroke-width: 13px; color: #FFD35A; }
+.rush-combo { position: absolute; left: 0; right: 0; top: 190px; text-align: center; opacity: 0; font: 400 calc(var(--size, 1) * 60px)/1 var(--display); color: #ff8a3c; -webkit-text-stroke: 10px #000; paint-order: stroke fill; }
+.rush-combo.pop { animation: stamp-pop 1000ms cubic-bezier(.2,1.6,.5,1) both; }
+.rush-callout { position: absolute; left: 0; right: 0; top: 280px; text-align: center; opacity: 0; font: 400 50px/1 var(--display); color: var(--cream); -webkit-text-stroke: 9px #000; paint-order: stroke fill; }
+.rush-callout.pop { animation: stamp-pop 800ms cubic-bezier(.2,1.6,.5,1) both; }
+@keyframes stamp-pop { 0% { opacity: 1; transform: scale(0.3); } 25% { opacity: 1; transform: scale(1); } 75% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.04); } }
+.rush-whiskey { position: absolute; width: 88px; height: 84px; margin: -42px 0 0 -44px; pointer-events: none; animation: word-pulse 460ms ease-in-out infinite; }
+.rush-whiskey[hidden] { display: none; }
+.hud:not([data-phase="rush"]) .rush-whiskey, .hud:not([data-phase="rush"]) .rush-mark { display: none; }
+/* Dead-eye: the world's edges close in, without changing any brightness. */
+.hud[data-phase="rush"][data-deadeye="on"]::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 200px 70px rgb(16 40 62 / 0.75); }
+.rush-help { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; font: 800 26px/1 var(--body); color: var(--cream); -webkit-text-stroke: 5px #000; paint-order: stroke fill; }
+.rush-boss { position: absolute; left: 50%; top: 128px; width: 760px; margin-left: -380px; }
+.rush-boss[hidden] { display: none; }
+.rush-boss > b { display: block; margin-bottom: 4px; text-align: center; font: 400 38px/1 var(--display); color: #fff3a8; -webkit-text-stroke: 7px #000; paint-order: stroke fill; }
+.rush-boss-track { position: relative; height: 34px; background: #1b0d08; box-shadow: 0 0 0 4px #000, 0 0 0 7px var(--cream), 0 6px 0 7px rgb(0 0 0 / 0.5); border-radius: 4px; }
+.rush-boss-track > i { position: absolute; left: 0; top: 0; bottom: 0; display: block; }
+.rush-boss-track .fill { width: 100%; background: linear-gradient(#ff5a3c 0 34%, #d8201a 34% 100%); }
+/* What's just been lost shows pale for a moment, then drains away. */
+.rush-boss-track .lag { width: 100%; background: #fff0a8; transition: width 460ms ease-out 260ms; }
+.rush-boss-track .rush-boss-chunk { background: #fff0a8; box-shadow: 0 0 0 2px #000; }
+/* He can't be hurt: the whole bar runs blue. */
+.rush-boss[data-state="shielded"] .rush-boss-track .fill { background: linear-gradient(#6f80e6 0 34%, #2f3da8 34% 100%); }
+.rush-boss[data-state="shielded"] .rush-boss-track { box-shadow: 0 0 0 4px #000, 0 0 0 7px #6f80e6, 0 6px 0 7px rgb(0 0 0 / 0.5); }
+/* The heart's showing: go, go, go. */
+.rush-boss[data-state="heart"] .rush-boss-track { box-shadow: 0 0 0 4px #000, 0 0 0 7px #ff8a1e, 0 0 26px 8px rgb(255 90 60 / 0.75); }
+/* The word for dodging time: it pops in once, then keeps pulsing until the attack's past. */
+.rush-word { display: none; position: absolute; left: 0; right: 0; top: 400px; text-align: center; font: 400 128px/1 var(--display); color: var(--gold); -webkit-text-stroke: 14px #000; paint-order: stroke fill; }
+.rush-word[data-move="left"], .rush-word[data-move="right"], .rush-word[data-move="duck"] { display: block; }
+.rush-word[data-move="left"] { text-align: left; padding-left: 90px; }
+.rush-word[data-move="right"] { text-align: right; padding-right: 90px; }
+.rush-word[data-move="duck"] { top: 640px; }
+.rush-word.pop { animation: word-pop 240ms cubic-bezier(.2,1.7,.5,1) both, word-pulse 460ms ease-in-out 240ms infinite; }
+@keyframes word-pop { 0% { transform: scale(0.2); } 100% { transform: scale(1); } }
+@keyframes word-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+/* The cannon's warning: one big mark over it, in the street. It pops once and holds, so it never flickers. */
+.rush-alert { position: absolute; width: 150px; height: 275px; overflow: visible; transform: translate(-50%, -50%); fill: #FFD35A; stroke: #000; stroke-width: 11; stroke-linejoin: round; paint-order: stroke fill; pointer-events: none; }
+.rush-alert[hidden] { display: none; }
+.rush-alert.strike { width: 66px; height: 121px; fill: #FF4A2E; stroke-width: 13; }
+.rush-alert.pop { animation: alert-pop 260ms cubic-bezier(.2,1.9,.45,1) both; }
+@keyframes alert-pop { 0% { transform: translate(-50%, -50%) scale(0.1) rotate(-14deg); } 100% { transform: translate(-50%, -50%) scale(1) rotate(0); } }
+/* A target reticle on anything thrown. */
+.rush-mark { position: absolute; left: 0; top: 0; will-change: transform; width: 128px; height: 128px; margin: -64px 0 0 -64px; pointer-events: none; overflow: visible; }
+.rush-mark[hidden] { display: none; }
+.rush-mark .spin { animation: mark-spin 1.6s linear infinite; }
+.rush-mark circle, .rush-mark path { fill: none; stroke: #ffd53d; stroke-width: 7; stroke-linecap: round; paint-order: stroke; }
+.rush-mark .dot { fill: #ffd53d; }
+@keyframes mark-spin { to { transform: rotate(360deg); } }
+.hud[data-phase="aim"] .plate { display: flex; }
+.hud[data-phase="shot"] :is(.bars, .caption) { display: block; }
+.hud[data-phase="impact"] :is(.bars, .sign, .plate) { display: block; }
+.hud[data-phase="impact"] .plate { display: flex; top: 6px; }
+.hud[data-phase="impact"] .shout.show { display: block; }
+.hud[data-phase="intro"] :is(.bars, .intro) { display: block; }
+
+/* Headshots and nut shots: a slammed stamp, a flash, and the whole HUD shaking. */
+.stamp, .rays, .xray { display: none; }
+
+/* Impact frame: hard radial spikes in one flat colour. It swaps light and dark once. */
+.hud[data-killcam^="frame"] .rays {
+  display: block; position: absolute; inset: -40%;
+  background: repeating-conic-gradient(from 3deg at 50% 50%, currentColor 0 7deg, transparent 7deg 13deg, currentColor 13deg 16deg, transparent 16deg 27deg);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0 22%, #000 22.2%);
+  mask: radial-gradient(circle at 50% 50%, transparent 0 22%, #000 22.2%);
+}
+.hud[data-killcam="frame-light"] .rays { color: #000; }
+.hud[data-killcam="frame-dark"] .rays { color: #fff; }
+
+/* The x-ray: a dark edge over the glowing bones. */
+.hud[data-killcam="xray"] .xray {
+  display: block; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, transparent 42%, rgb(1 6 18 / 0.86) 100%);
+}
+/* The HUD gets out of the way until the body drops. */
+.hud[data-killcam^="frame"] :is(.bars, .plate, .sign, .shout, .stamp),
+.hud[data-killcam="xray"] :is(.plate, .sign, .shout) { display: none !important; }
+
+.hud[data-zone="head"], .hud[data-zone="nuts"] { animation: hud-shake 520ms linear both; }
+/* Clears the stamp, which takes the top of the screen. */
+.hud[data-zone="head"] .sign, .hud[data-zone="nuts"] .sign { top: 400px; left: 70px; }
+.hud[data-zone="head"] .stamp, .hud[data-zone="nuts"] .stamp, .hud[data-zone="body"] .stamp {
+  display: block; position: absolute; left: 0; right: 0; top: 150px; text-align: center;
+  font: 400 190px/1 var(--display); color: #ffd34d;
+  text-shadow: 0 10px 0 var(--blood), 0 18px 0 var(--wood-dark), 0 0 60px rgb(0 0 0 / 0.5);
+  animation: stamp-slam 460ms cubic-bezier(.16,1.6,.4,1) both;
+}
+.hud[data-zone="nuts"] .stamp { color: #ff9fb0; text-shadow: 0 10px 0 #8d2243, 0 18px 0 var(--wood-dark), 0 0 60px rgb(0 0 0 / 0.5); animation: stamp-slam 460ms cubic-bezier(.16,1.6,.4,1) both, stamp-wince 900ms ease-in-out 460ms infinite; }
+@keyframes hud-shake {
+  0%, 100% { transform: none; }
+  12% { transform: translate(-22px, 12px) rotate(-0.6deg); }
+  26% { transform: translate(18px, -14px) rotate(0.5deg); }
+  42% { transform: translate(-12px, -8px) rotate(-0.3deg); }
+  60% { transform: translate(9px, 8px); }
+  78% { transform: translate(-4px, 3px); }
+}
+@keyframes stamp-slam { from { transform: scale(2.6) rotate(-7deg); opacity: 0; } to { transform: scale(1) rotate(-2deg); opacity: 1; } }
+@keyframes stamp-wince { 50% { transform: scale(0.96, 1.05) rotate(2deg); } }
+
+/* The tutorial's instructions sit over a real turn, with the match's clock out of the way. */
+.tutorial { display: none; position: absolute; left: 0; right: 0; top: 28px; text-align: center; }
+.hud[data-tutorial="aim"] .tutorial, .hud[data-tutorial="nuts"] .tutorial, .hud[data-tutorial="fire"] .tutorial { display: block; }
+.hud[data-tutorial="aim"] :is(.centre, .ribbon, .plate),
+.hud[data-tutorial="nuts"] :is(.centre, .ribbon, .plate),
+.hud[data-tutorial="fire"] :is(.ribbon, .plate) { display: none !important; }
+.hud[data-tutorial="fire"] .centre { top: 150px; }
+.hud[data-tutorial="aim"] .holler, .hud[data-tutorial="nuts"] .holler { display: none; }
+/* Shows where to aim on the nut shot step. */
+.tut-mark {
+  display: none; position: absolute; width: 104px; height: 104px; margin: -52px 0 0 -52px; pointer-events: none;
+  border: 6px solid var(--gold); border-radius: 50%; box-shadow: 0 0 0 4px #000, inset 0 0 0 4px #000;
+  animation: tick 1s ease-in-out infinite;
+}
+.hud[data-tutorial="nuts"] .tut-mark { display: block; }
+.hud[data-tutorial] .tutorial > * { text-shadow: 0 4px 0 var(--ink), 0 0 16px rgb(0 0 0 / 0.6); }
+.tut-step { font: 800 20px/1 var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--cream); }
+.tut-title { margin-top: 8px; font: 400 44px/1.05 var(--display); color: var(--gold); }
+.tut-note { margin-top: 8px; font: 800 23px/1.2 var(--body); color: var(--cream); }
+/* Over the practice lizard, only the bits the tutorial's about: the reticle and the ammo. The steps sit where the score would. */
+.hud:is([data-tutorial="aim"], [data-tutorial="nuts"], [data-tutorial="fire"], [data-tutorial="done"]) :is(.rush-help, .rush-wave, .rush-deadeye, .rush-hearts, .rush-scorebox) { display: none; }
+.hud[data-tutorial="done"] .tutorial { display: none; }
+.tut-skip { position: fixed; display: none; }
+.hud[data-tutorial="aim"] .tut-skip, .hud[data-tutorial="nuts"] .tut-skip, .hud[data-tutorial="fire"] .tut-skip {
+  display: block; position: absolute; left: 30px; top: -8px; font: 800 19px/1 var(--body); color: var(--cream);
+}
+
+/* The camera check at launch: what it needs, a ring in the middle to point at, and your arm's dot. */
+.screen.camcheck { background: rgb(18 9 4 / 0.72); }
+.screen.camcheck.open { display: block; }
+.cam-head { position: absolute; left: 0; right: 0; top: 70px; text-align: center; }
+.cam-icon { display: block; width: 92px; height: 92px; margin: 0 auto 6px; fill: #2A180E; stroke: var(--gold); stroke-width: 3.5; }
+.cam-icon .lens { fill: var(--gold); stroke: none; }
+.hud[data-camcheck="none"] .cam-icon { stroke: #E2563B; }
+.hud[data-camcheck="none"] .cam-icon .lens { fill: #E2563B; }
+.hud[data-camcheck="looking"] .cam-icon .lens { animation: cam-blink 1.6s ease-in-out infinite; }
+@keyframes cam-blink { 50% { opacity: 0.25; } }
+.cam-kicker { font: 800 22px/1 var(--body); letter-spacing: 0.14em; text-transform: uppercase; color: var(--cream); }
+.cam-title { margin: 12px 0 0; font: 400 76px/1.05 var(--display); color: var(--gold); -webkit-text-stroke: 9px #000; paint-order: stroke fill; }
+.hud[data-camcheck="none"] .cam-title { color: #FFB49A; }
+.hud[data-camcheck="done"] .cam-title { color: #B8F08C; }
+.cam-note { width: 980px; margin: 14px auto 0; font: 800 28px/1.3 var(--body); color: var(--cream); -webkit-text-stroke: 5px #000; paint-order: stroke fill; }
+/* The ring fills as you hold your arm on it. 0.13 of the screen's height across each way, the same as the check. */
+.cam-ring {
+  position: absolute; left: 50%; top: 50%; width: 281px; height: 281px; margin: -140px 0 0 -140px; border-radius: 50%;
+  background: conic-gradient(var(--gold) calc(var(--held, 0) * 360deg), rgb(255 240 168 / 0.12) 0);
+  box-shadow: 0 0 0 6px #000; display: none;
+}
+.cam-ring i { position: absolute; inset: 22px; border-radius: 50%; background: #2A180E; box-shadow: 0 0 0 6px #000; }
+.cam-ring::after { content: ""; position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 4px #000; }
+/* At CHECK_TARGET in cameraCheck.ts: a little below the middle, clear of the words. */
+.hud:is([data-camcheck="point"], [data-camcheck="done"]) .cam-ring { display: block; top: 56%; }
+.hud[data-camcheck="done"] .cam-ring { background: #B8F08C; }
+.cam-hand {
+  position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; pointer-events: none;
+  border: 7px solid #fff; box-shadow: 0 0 0 4px #000, inset 0 0 0 4px #000;
+}
+.cam-skip { position: absolute; left: 0; right: 0; bottom: 64px; text-align: center; font: 800 26px/1 var(--body); color: var(--cream); -webkit-text-stroke: 5px #000; paint-order: stroke fill; }
+@media (prefers-reduced-motion: reduce) { .hud[data-camcheck="looking"] .cam-icon .lens { animation: none; } }
+
+/* The western title: the logo climbs up over a huge sun, from behind the land. */
+.title-seq { display: none; position: absolute; inset: 0; overflow: hidden; background: linear-gradient(180deg, #2c1436 0%, #a3302c 38%, #f07a2a 62%, #ffc35a 80%); }
+.hud[data-title="on"] .title-seq { display: block; }
+.title-sun {
+  position: absolute; left: 50%; bottom: 60px; width: 1060px; height: 1060px; margin-left: -530px; border-radius: 50%;
+  background: linear-gradient(180deg, #fff0a8, #ffb437 58%, #f0601f);
+  animation: sun-rise 4.2s cubic-bezier(.2,.7,.3,1) both;
+}
+.title-logo {
+  position: absolute; left: 50%; top: 180px; width: 1080px; margin-left: -540px;
+  animation: logo-rise 2.5s 0.7s cubic-bezier(.16,.9,.3,1) both;
+}
+.title-logo svg { display: block; width: 100%; height: auto; overflow: visible; }
+.title-land { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 520px; }
+.title-land .far { fill: #4b1a1c; }
+.title-land .near { fill: #140705; }
+.title-bar { position: absolute; left: 0; right: 0; height: 84px; background: #000; }
+.title-bar.top { top: 0; }
+.title-bar.bottom { bottom: 0; }
+@keyframes sun-rise { from { transform: translateY(240px); } }
+@keyframes logo-rise { from { transform: translateY(760px); } }
+
+/* Text floating over the scene gets a solid black edge, so it reads against anything. */
+.tut-step, .tut-note, .tut-skip, .intro-skip, .reticle-zone, .round {
+  -webkit-text-stroke: 5px #000; paint-order: stroke fill;
+}
+.tut-title, .intro-name, .intro-solo, .menu-banner, .banner, .camera-title {
+  -webkit-text-stroke: 8px #000; paint-order: stroke fill;
+}
+.stamp, .intro-vs { -webkit-text-stroke: 12px #000; paint-order: stroke fill; }
+
+/* One hard flash, cutting into the menu. */
+.impact-flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; opacity: 0; background: #fff6d8; }
+.impact-flash.go { animation: impact-flash 420ms ease-out both; }
+@keyframes impact-flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+/* One quick flash per shot, with shots far enough apart to stay clear of strobing. */
+.shot-flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; opacity: 0; background: #fff3c4; }
+.shot-flash.go { animation: shot-flash 170ms ease-out both; }
+@keyframes shot-flash { 0% { opacity: 0.85; } 100% { opacity: 0; } }
+
+/* Letterbox */
+.bars i {
+  position: absolute; left: 0; right: 0; height: 104px; background: #090503;
+  animation: bar-in 280ms ease-out both;
+}
+.bars i:first-child { top: 0; --from: -104px; }
+.bars i:last-child { bottom: 0; --from: 104px; }
+@keyframes bar-in { from { transform: translateY(var(--from)); } }
+
+/* Reticle */
+.reticle {
+  position: absolute; left: 0; top: 0; aspect-ratio: 1; transform: translate(-50%, -50%);
+  color: #fff3cf; filter: drop-shadow(0 0 6px rgb(0 0 0 / 0.7));
+  will-change: transform;
+}
+.reticle svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.reticle.on-target { color: #ff5a2a; }
+/* The crosshair for screens with buttons, when there's a mouse. */
+.pointer {
+  position: absolute; width: 38px; height: 38px; margin: -19px 0 0 -19px; z-index: 5; pointer-events: none;
+  border: 4px solid var(--cream); border-radius: 50%; box-shadow: 0 0 0 3px var(--ink);
+}
+.pointer::before, .pointer::after { content: ""; position: absolute; background: var(--cream); }
+.pointer::before { left: 13px; top: -12px; width: 4px; height: 54px; }
+.pointer::after { top: 13px; left: -12px; height: 4px; width: 54px; }
+.pointer[hidden] { display: none; }
+.reticle-zone {
+  position: absolute; left: 50%; top: 100%; margin-top: 8px; transform: translateX(-50%); white-space: nowrap;
+  font: 400 26px/1 var(--display); color: var(--brass); text-shadow: 0 3px 0 var(--wood-dark), 0 0 8px rgb(0 0 0 / 0.7);
+}
+
+/* Player plates */
+.plate {
+  position: absolute; top: 36px; width: 560px; gap: 14px; align-items: center;
+  padding: 12px 20px; background: var(--wood);
+  border: 6px solid var(--ink); border-radius: 6px;
+  box-shadow: 0 0 0 4px var(--cream), 0 10px 0 4px var(--ink);
+  opacity: 0.92;
+  transition: opacity 180ms, transform 180ms;
+}
+.plate.p0 { left: 52px; }
+.plate.p1 { right: 52px; }
+.plate.active { opacity: 1; transform: translateY(4px); box-shadow: 0 0 0 4px var(--gold), 0 10px 0 4px var(--ink); }
+.plate-body { flex: 1; }
+.plate-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.pname { font: 400 34px/1 var(--display); color: var(--cream); }
+.plate strong { font: 400 44px/1 var(--display); color: var(--brass); font-variant-numeric: tabular-nums; }
+.star { font-size: 50px; line-height: 1; color: rgb(251 238 205 / 0.2); }
+.plate.active .star { color: var(--brass); }
+.hpbar { height: 28px; background: #000; border: 3px solid #000; border-radius: 2px; overflow: hidden; }
+.hpbar i { display: block; height: 100%; background: #d7b24a; transition: width 420ms cubic-bezier(.2,.9,.3,1); }
+.p1 .hpbar i { margin-left: auto; }
+.hpbar i { background: var(--poncho, var(--gold)) !important; }
+
+/* Pocket watch */
+.centre { position: absolute; top: 22px; left: 50%; width: 260px; margin-left: -130px; text-align: center; }
+.watch {
+  --left: 1;
+  width: 148px; height: 148px; margin: 0 auto; border-radius: 50%; padding: 12px;
+  background: conic-gradient(var(--brass) calc(var(--left) * 360deg), #000 0);
+  border: 6px solid var(--ink);
+  box-shadow: 0 0 0 4px var(--cream), 0 9px 0 4px var(--ink);
+}
+.dial {
+  width: 100%; height: 100%; border-radius: 50%; display: grid; place-items: center;
+  background: var(--paper); color: var(--ink); border: 3px solid var(--wood-dark);
+  font: 400 64px/1 var(--display); font-variant-numeric: tabular-nums;
+}
+.watch.urgent { background: conic-gradient(var(--red) calc(var(--left) * 360deg), #000 0); animation: tick 1s steps(2) infinite; }
+.watch.urgent .dial { color: var(--blood); }
+@keyframes tick { 50% { transform: scale(1.06); } }
+.round {
+  margin-top: 12px; font: 800 24px/1.2 var(--body); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--cream); text-shadow: 0 2px 0 var(--wood-dark), 0 0 12px rgb(0 0 0 / 0.5);
+}
+
+.ribbon {
+  position: absolute; top: 224px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  padding: 8px 30px; font: 400 32px/1.1 var(--display); color: var(--ink); background: var(--paper);
+  border: 5px solid var(--ink); border-radius: 4px;
+  box-shadow: 0 7px 0 var(--ink);
+}
+
+/* The match's readouts, kept small so the duel gets the screen. */
+.plate, .centre, .ribbon { zoom: 0.72; }
+
+/* The charge meter: a small round gauge beside the gun, filling clockwise. */
+.holler { position: absolute; right: 610px; bottom: 210px; width: 96px; height: 96px; }
+.meter {
+  --fill: 0; --fill-color: var(--gold);
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(var(--fill-color) calc(var(--fill) * 1turn), #57504a 0);
+  box-shadow: 0 0 0 4px var(--ink), 0 0 0 7px var(--cream), 0 6px 0 7px rgb(0 0 0 / 0.45);
+}
+.meter[data-heat="hot"] { --fill-color: var(--red); }
+.holler-percent {
+  position: absolute; inset: 13px; border-radius: 50%; display: grid; place-items: center;
+  font: 800 21px/1 var(--body); color: var(--cream); background: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.holler-note {
+  position: absolute; right: 112px; bottom: 12px; width: 214px; padding: 8px 12px 10px; display: flex; gap: 10px; align-items: center;
+  font: 800 19px/1.18 var(--body); color: var(--cream); background: var(--ink);
+  clip-path: polygon(0 10%, 100% 0, 100% 90%, 1% 100%);
+  transition: opacity 240ms;
+}
+.holler-remote { flex: none; width: 20px; fill: var(--cream); }
+.holler-remote circle { fill: var(--ink); }
+.holler-remote .press { fill: var(--red); animation: tick 1s steps(2) infinite; }
+
+/* One-shot banners */
+.banner {
+  position: absolute; left: 0; right: 0; top: 400px; text-align: center; opacity: 0;
+  font: 400 78px/1 var(--display); color: var(--cream);
+  text-shadow: 0 7px 0 var(--wood-dark), 0 0 40px rgb(0 0 0 / 0.5);
+}
+.banner.show { animation: banner 1100ms ease-out both; }
+@keyframes banner {
+  0% { opacity: 0; transform: scale(1.35); }
+  18%, 70% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.98); }
+}
+
+.caption {
+  position: absolute; left: 0; right: 0; bottom: 24px; text-align: center;
+  font: 400 42px/1.2 var(--display); color: var(--cream);
+}
+
+/* The impact sign */
+.sign {
+  position: absolute; left: 110px; top: 260px; width: 560px; padding: 26px 36px; text-align: center;
+  background: var(--wood); border: 7px solid var(--ink); border-radius: 6px;
+  box-shadow: 0 0 0 5px var(--cream), 0 13px 0 5px var(--ink);
+  transform: rotate(-3deg);
+  animation: sign-drop 420ms cubic-bezier(.2,1.5,.4,1) both;
+}
+@keyframes sign-drop { from { transform: translateY(-500px) rotate(-12deg); } }
+.sign-big { font: 400 124px/1 var(--display); color: var(--brass); }
+.sign.hit .sign-big { color: var(--gold); }
+.sign-small { margin-top: 12px; font: 800 34px/1.15 var(--body); color: var(--cream); }
+.shout {
+  position: absolute; left: 0; right: 0; bottom: 24px; text-align: center;
+  font: 400 40px/1.2 var(--display); color: var(--cream);
+}
+
+/* The opening stare: letterboxed eyes, then both with a black slash and VS. */
+.intro { position: absolute; inset: 0; text-align: center; overflow: hidden; }
+.hud[data-phase="intro"] .bars { display: none; }
+.hud[data-phase="intro"][data-intro="first"] .intro::before,
+.hud[data-phase="intro"][data-intro="second"] .intro::before {
+  content: ""; position: absolute; inset: 0;
+  border-top: 190px solid #000; border-bottom: 190px solid #000;
+}
+.intro-solo {
+  display: none; position: absolute; left: 0; right: 0; bottom: 44px;
+  font: 400 104px/1 var(--display); color: var(--gold);
+  text-shadow: 0 6px 0 var(--ink);
+}
+.hud[data-intro="first"] .intro-solo, .hud[data-intro="second"] .intro-solo { display: block; }
+.intro-versus { display: none; position: absolute; inset: 0; }
+.hud[data-intro="versus"] .intro-versus { display: block; }
+/* A plain black band across the seam between the two faces. */
+.intro-slash {
+  position: absolute; left: 0; right: 0; top: 37%; height: 26%; background: #000;
+  animation: slash-in 180ms cubic-bezier(.2,.9,.2,1) both;
+}
+@keyframes slash-in { from { transform: scaleX(0); } }
+.intro-name { position: absolute; font: 400 88px/1 var(--display); color: var(--cream); text-shadow: 0 5px 0 #000, 0 0 16px #000; }
+.intro-name.top { left: 56px; top: 34px; }
+.intro-name.bottom { right: 56px; bottom: 34px; }
+.intro-vs {
+  position: absolute; left: 0; right: 0; top: 50%; margin-top: -116px;
+  font: 400 220px/1 var(--display); color: var(--gold);
+  text-shadow: 0 9px 0 var(--red), 0 18px 0 #000;
+  animation: vs-slam 300ms 80ms cubic-bezier(.16,1.7,.4,1) both, vs-pulse 620ms 380ms ease-in-out infinite;
+}
+@keyframes vs-slam { from { transform: scale(3) rotate(-12deg); opacity: 0; } to { transform: scale(1) rotate(-5deg); opacity: 1; } }
+@keyframes vs-pulse { 0%, 100% { transform: scale(1) rotate(-5deg); } 50% { transform: scale(1.14) rotate(-5deg); } }
+.intro-skip { position: absolute; right: 34px; top: 28px; font: 800 26px/1 var(--body); color: rgb(255 244 216 / 0.78); }
+
+/* Full screens */
+.screen { position: absolute; inset: 0; display: none; pointer-events: auto; }
+.screen.open { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.screen.paper { background: rgb(18 9 4 / 0.5); }
+
+/* The menu is the gallery itself, so everything here floats over the 3D. */
+.screen.menu { pointer-events: none; cursor: none; }
+.menu-logo { position: absolute; left: 36px; top: 10px; width: 660px; }
+.menu-logo svg { display: block; width: 100%; height: auto; overflow: visible; }
+.menu-help {
+  position: absolute; left: 0; right: 0; bottom: 34px; margin: 0; text-align: center;
+  font: 800 30px/1.2 var(--body); color: var(--cream); text-shadow: 0 2px 0 var(--wood-dark), 0 0 12px rgb(0 0 0 / 0.6);
+}
+.menu-banner {
+  position: absolute; left: 0; right: 0; top: 390px; text-align: center; opacity: 0;
+  font: 400 92px/1.1 var(--display); color: #ffcd3f; text-shadow: 0 5px 0 #8c3a18, 0 10px 18px rgb(0 0 0 / 0.5);
+}
+.menu-banner.show { opacity: 1; animation: stamp-slam 240ms cubic-bezier(.2,1.5,.5,1) both; }
+/* Kept for the assistant's view of the screen, which reads these. They can't be seen or clicked. */
+
+.loading {
+  position: absolute; inset: 0; display: grid; place-items: center; background: #1a0e08;
+  font: 400 64px/1.1 var(--display); color: var(--cream); pointer-events: none;
+}
+.loading[hidden] { display: none; }
+
+/* The cylinder reticle */
+.cylinder { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; }
+.cylinder svg { position: absolute; left: -42px; top: -42px; width: 84px; height: 84px; overflow: visible; transition: transform 140ms; }
+.cylinder.on svg { transform: scale(0.82); }
+.cylinder .spin { transition: transform 220ms cubic-bezier(.3,1.5,.5,1); transform-box: view-box; transform-origin: center; }
+.cylinder .body { fill: rgb(26 14 8 / 0.34); stroke: #fff4d8; stroke-width: 3; }
+.cylinder .notch { fill: rgb(26 14 8 / 0.85); stroke: #fff4d8; stroke-width: 2.4; }
+.cylinder .hole { fill: rgb(16 8 4 / 0.92); stroke: #fff4d8; stroke-width: 2.6; }
+.cylinder .brass { fill: #f4bb3e; transition: fill 100ms; }
+.cylinder .primer { fill: #a9661e; transition: fill 100ms; }
+.cylinder .spent .brass, .cylinder .spent .primer { fill: #1a0f08; }
+.cylinder .pin { fill: #fff4d8; stroke: #1a0e08; stroke-width: 2.5; transition: fill 120ms; }
+.cylinder .tick { stroke: #fff4d8; stroke-width: 4; stroke-linecap: round; transition: stroke 120ms; }
+.cylinder.on .pin { fill: #ff5a2a; }
+.cylinder.on :is(.tick, .body, .notch, .hole) { stroke: #38e6d0; }
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+.wood {
+  padding: 18px 28px; display: flex; align-items: baseline; justify-content: center; gap: 18px;
+  font: 400 44px/1.05 var(--display); color: var(--cream);
+  background: var(--wood); border: 6px solid var(--ink); border-radius: 6px;
+  box-shadow: 0 9px 0 var(--ink);
+  transition: transform 90ms ease-out, box-shadow 90ms ease-out;
+}
+.wood small { font: 700 28px/1 var(--body); color: var(--paper-deep); }
+.wood:focus-visible, .wood:hover { outline: 6px solid var(--brass); outline-offset: 4px; }
+.wood:active { transform: translateY(7px); box-shadow: 0 2px 0 var(--ink); }
+.wood.quiet { background: var(--paper-deep); color: var(--ink); }
+
+/* The paper poster behind the hand-off, pause and results */
+.poster {
+  width: 1000px; padding: 46px 72px 50px; text-align: center; color: var(--ink);
+  background: var(--paper);
+  border: 8px solid var(--ink);
+  box-shadow: 0 0 0 5px var(--cream), 0 18px 0 5px var(--ink);
+  transform: rotate(-0.6deg);
+  animation: poster-in 260ms cubic-bezier(.2,1.2,.4,1) both;
+}
+@keyframes poster-in { from { transform: translateY(40px) rotate(-3deg); opacity: 0; } }
+.poster h2 { margin: 0; font: 400 104px/1.02 var(--display); color: var(--blood); }
+.poster-kicker { font: 800 30px/1 var(--body); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 14px; color: var(--ink-soft); }
+.poster-name { margin: 8px 0 18px; font: 400 62px/1.05 var(--display); }
+.poster-name b { font-weight: 400; color: var(--ink); }
+.poster-note { margin: 20px auto 0; max-width: 780px; font: 700 34px/1.3 var(--body); color: var(--ink); }
+.poster-hp { display: flex; justify-content: center; gap: 56px; margin-top: 24px; font: 800 30px/1 var(--body); color: var(--ink-soft); }
+.poster-press { margin: 30px 0 0; font: 400 38px/1.1 var(--display); color: var(--blood); animation: throb 1.2s ease-in-out infinite; }
+@keyframes throb { 50% { opacity: 0.55; } }
+.poster-stat { margin: 16px 0 28px; font: 800 32px/1 var(--body); color: var(--ink-soft); }
+.poster-buttons { display: flex; gap: 22px; justify-content: center; margin-top: 26px; }
+.poster-buttons .wood { min-width: 310px; }
+/* Small and light, so the winner's dance and the loser's stars stay in view. */
+.screen.results.paper { background: rgb(18 9 4 / 0.18); }
+.results .poster { width: 800px; padding: 34px 50px 38px; }
+.results .poster h2 { font-size: 88px; }
+.results .poster-buttons .wood { min-width: 280px; }
+
+/* A chunky remote, handed over */
+.remote-art {
+  position: relative; width: 300px; height: 92px; margin: 10px auto 0;
+  background: var(--wood-dark); border-radius: 46px; display: flex; align-items: center; gap: 16px; padding-left: 46px;
+  animation: pass-across 1.4s ease-in-out infinite alternate;
+}
+.remote-art i { display: block; width: 28px; height: 28px; border-radius: 50%; background: var(--paper-deep); }
+.remote-art b { position: absolute; right: 36px; width: 46px; height: 46px; border-radius: 50%; background: var(--blood); }
+@keyframes pass-across { from { transform: translateX(-70px) rotate(-3deg); } to { transform: translateX(70px) rotate(3deg); } }
+
+/* Dev panel */
+.dev {
+  position: absolute; right: 16px; top: 180px; z-index: 10; width: 400px; padding: 14px; pointer-events: auto;
+  background: rgb(14 8 4 / 0.93); border: 2px solid var(--brass); border-radius: 8px;
+  font: 700 20px/1.2 var(--body); color: var(--cream); display: none;
+}
+.dev.open { display: block; }
+.dev h3 { margin: 0 0 8px; font: 400 24px/1 var(--display); color: var(--brass); }
+.dev label { display: grid; grid-template-columns: 170px 1fr 54px; align-items: center; gap: 8px; margin-bottom: 4px; }
+.dev input[type="range"] { width: 100%; }
+.dev select, .dev button { font: inherit; padding: 4px 8px; background: var(--wood); color: var(--cream); border: 1px solid var(--brass); border-radius: 4px; }
+.dev .row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; align-items: center; }
+.dev .check { display: flex; grid-template-columns: none; gap: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .watch.urgent, .poster-press, .remote-art { animation: none; }
+  .banner.show { animation-duration: 1ms; opacity: 1; }
+  .title-sun, .title-logo, .tut-mark, .rush-mark .spin { animation: none; }
+  .rush-word.pop, .rush-alert.pop, .rush-note, .rush-whiskey, .rush-scorebox.hit { animation: none; }
+  .impact-flash.go, .shot-flash.go { animation-duration: 1ms; }
+  .intro-slash, .intro-vs { animation: none; }
+  .intro-vs { transform: rotate(-5deg); }
+  .hud[data-zone="head"], .hud[data-zone="nuts"] { animation: none; }
+  .hud[data-zone="nuts"] .stamp { animation: none; }
+}
+
+/* Taking a hit: red in from the edges, with a touch over the whole picture. Held at 0 until animated. */
+.rush-hurt {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at center, rgba(214, 26, 12, 0) 34%, rgba(214, 26, 12, 0.92) 100%),
+    rgba(255, 58, 28, 0.12);
+}
+
+/* The score box warms up with the combo. */
+.rush-scorebox[data-heat="2"] { box-shadow: 0 0 0 4px #ffd35a, 0 6px 0 4px rgb(0 0 0 / 0.5); }
+.rush-scorebox[data-heat="3"] { box-shadow: 0 0 0 5px #ff8a1e, 0 6px 0 5px rgb(0 0 0 / 0.5), 0 0 26px 4px rgb(255 138 30 / 0.55); }
+.rush-scorebox[data-heat="4"] { box-shadow: 0 0 0 6px #f2681a, 0 6px 0 6px rgb(0 0 0 / 0.5), 0 0 38px 8px rgb(242 104 26 / 0.7); }
+.rush-scorebox[data-heat="5"] { box-shadow: 0 0 0 7px #d8201a, 0 6px 0 7px rgb(0 0 0 / 0.5), 0 0 52px 12px rgb(216 32 26 / 0.8); }
+
+/* A wave's report card. */
+.rush-tally { position: absolute; left: 50%; top: 200px; width: 620px; margin-left: -310px; padding: 22px 34px 26px; text-align: center; opacity: 0; pointer-events: none; color: var(--cream); background: rgb(18 9 4 / 0.9); box-shadow: 0 0 0 5px var(--cream), 0 10px 0 5px #000; border-radius: 10px; }
+.rush-tally.show { animation: tally-card 3100ms both; }
+@keyframes tally-card { 0% { opacity: 0; transform: translateY(-30px) scale(0.9); } 6% { opacity: 1; transform: translateY(0) scale(1); } 90% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-16px); } }
+.rush-tally h3 { margin: 0 0 12px; font: 400 62px/1 var(--display); color: var(--gold); }
+.rush-tally dl { margin: 0; }
+.rush-tally dl div { display: flex; justify-content: space-between; padding: 3px 0; font: 800 34px/1.2 var(--body); opacity: 0; animation: tally-line 200ms ease-out both; }
+.rush-tally dl div:nth-child(1) { animation-delay: 300ms; }
+.rush-tally dl div:nth-child(2) { animation-delay: 500ms; }
+.rush-tally dl div:nth-child(3) { animation-delay: 700ms; }
+.rush-tally dl div:nth-child(4) { animation-delay: 900ms; }
+@keyframes tally-line { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+.rush-tally dd { margin: 0; color: #fff3a8; }
+.rush-tally-bonus { margin: 12px 0 0; font: 900 40px/1 var(--body); color: #ff8a1e; opacity: 0; animation: tally-line 200ms 1000ms ease-out both; }
+.rush-tally .rush-grade { position: absolute; right: -46px; top: -44px; animation: grade-slam 320ms 1150ms cubic-bezier(.2,1.5,.5,1) both; }
+@keyframes grade-slam { from { opacity: 0; transform: scale(3.4) rotate(-24deg); } to { opacity: 1; transform: scale(1) rotate(-9deg); } }
+
+.rush-grade { display: inline-block; font: 400 150px/1 var(--display); -webkit-text-stroke: 14px #000; paint-order: stroke fill; text-shadow: 0 9px 0 #000; transform: rotate(-9deg); }
+.rush-grade.grade-s { color: #ffd35a; }
+.rush-grade.grade-a { color: #ff8a1e; }
+.rush-grade.grade-b { color: #8bd6a8; }
+.rush-grade.grade-c { color: #a8a8ae; }
+
+/* The high score table, and typing your initials. */
+.rush-scores { list-style: none; width: 460px; margin: 10px auto; padding: 0; font: 800 32px/1.25 var(--body); }
+.rush-scores li { display: flex; gap: 22px; padding: 1px 12px; }
+.rush-scores span { width: 26px; opacity: 0.6; }
+.rush-scores b { flex: 1; text-align: left; letter-spacing: 0.08em; }
+.rush-scores i { font-style: normal; font-variant-numeric: tabular-nums; }
+.rush-scores li.mine { color: #000; background: var(--gold); border-radius: 6px; }
+.rush-entry p { margin: 0 0 6px; font: 800 26px/1.2 var(--body); }
+.rush-initials { display: flex; justify-content: center; gap: 14px; }
+.rush-initials b { width: 78px; padding: 4px 0; font: 400 78px/1 var(--display); text-align: center; color: var(--cream); background: var(--ink); border-radius: 8px; }
+.rush-initials b.on { color: #000; background: var(--gold); box-shadow: 0 0 0 4px #000, 0 0 0 8px var(--gold); }
+
+/* On the title: blinks about once a second, well clear of anything that could bother anyone. */
+@keyframes coin-blink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rush-tally dl div, .rush-tally-bonus, .rush-tally .rush-grade { animation-duration: 1ms; } }
+
+/* Coins, on the menu and in the outfits screen. */
+.coin-count { display: flex; align-items: center; gap: 12px; font: 400 44px/1 var(--display); color: #FFD35A; -webkit-text-stroke: 7px #2a0f18; paint-order: stroke fill; }
+.coin-count i { display: block; width: 38px; height: 38px; border-radius: 50%; background: #FFD35A; box-shadow: 0 0 0 5px #2a0f18, inset 0 0 0 5px #FFB02E; }
+/* Clear of the TV's own "Camera on" badge in the corner. */
+.menu .coin-count { position: absolute; right: 290px; top: 44px; }
+.rush-coins { color: #B97A1E; font-weight: 700; }
+
+/* The outfits screen: the gun turns on the canvas behind all this, in the clear space in the middle. */
+.screen.shop { position: absolute; inset: 0; }
+.screen.shop header { position: absolute; left: 70px; right: 290px; top: 44px; display: flex; align-items: center; justify-content: space-between; }
+.screen.shop h2 { margin: 0; font: 400 76px/1 var(--display); color: #F4D9A8; -webkit-text-stroke: 9px #120A06; paint-order: stroke fill; }
+.shop-arrow { position: absolute; top: 400px; width: 0; height: 0; border-top: 74px solid transparent; border-bottom: 74px solid transparent; filter: drop-shadow(0 0 0 #120A06); }
+.shop-arrow.left { left: 70px; border-right: 96px solid #FFD35A; }
+.shop-arrow.right { right: 70px; border-left: 96px solid #FFD35A; }
+.shop-info { position: absolute; left: 0; right: 0; bottom: 40px; text-align: center; color: #F4D9A8; }
+.shop-info h3 { margin: 0 0 8px; font: 400 92px/1 var(--display); color: #FFF0A8; -webkit-text-stroke: 11px #120A06; paint-order: stroke fill; }
+.shop-info p { margin: 0; font-size: 34px; font-weight: 700; }
+.shop-info .shop-stats { margin-top: 6px; font-size: 27px; color: #E8BE83; min-height: 33px; }
+.shop-info em { display: block; margin-top: 12px; min-height: 58px; font: 400 54px/1 var(--display); font-style: normal; color: #FFD35A; }
+.shop-info em.cant { color: #D69C62; }
+.shop-info em.mine { color: #8BD6A8; }
+.shop-dots { display: flex; justify-content: center; gap: 16px; margin-top: 12px; }
+.shop-dots i { display: block; width: 22px; height: 22px; border-radius: 50%; background: #6B3F24; border: 4px solid #120A06; }
+.shop-dots i.mine { background: #2F8F6F; }
+.shop-dots i.back { border-radius: 4px; }
+.shop-dots i.on { background: #FFD35A; }
+.shop-info .shop-hint { margin-top: 12px; font-size: 30px; }
+
+/* The settings screen: a plank over the street. */
+.screen.settings { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.screen.settings:not(.open) { display: none; }
+.settings-panel { width: 980px; padding: 40px 54px 34px; background: #2A180E; border: 8px solid #120A06; box-shadow: inset 0 0 0 5px #8F5A33; color: #F4D9A8; }
+.settings-panel h2 { margin: 0 0 26px; text-align: center; font: 400 80px/1 var(--display); color: #FFF0A8; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; min-height: 96px; margin-bottom: 14px; padding: 0 34px; background: #472917; border: 5px solid #120A06; font: 400 50px/1 var(--display); }
+.settings-row.selected { background: #8F5A33; border-color: #FFD35A; }
+.settings-row b { font-weight: 400; color: #E8BE83; }
+.settings-row b.on { color: #8BD6A8; }
+.settings-hint { margin: 20px 0 0; min-height: 40px; text-align: center; font-size: 32px; font-weight: 700; }
+.settings-choice { display: flex; align-items: center; gap: 22px; }
+.settings-choice b { min-width: 250px; text-align: center; color: #FFD35A; }
+.settings-row.off .settings-choice b { color: #E8BE83; }
+.settings-choice i { display: block; width: 0; height: 0; border-top: 16px solid transparent; border-bottom: 16px solid transparent; }
+.settings-choice i.left { border-right: 22px solid #FFD35A; }
+.settings-choice i.right { border-left: 22px solid #FFD35A; }

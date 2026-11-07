@@ -1,0 +1,27 @@
+{
+  "name": "littletest",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fontsource/bitter": "^5.3.0",
+    "@fontsource/rye": "^5.3.0",
+    "@kabletv/little-motion": "^0.39.1",
+    "@kabletv/little-sdk": "^0.39.1"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2",
+    "qrcode-generator": "^2.0.4",
+    "selfsigned": "^5.5.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0",
+    "vitest": "^3.2.7",
+    "ws": "^8.22.1"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "title": "Fistfull of Bananas",
+  "description": "A one-player Wild West shooting gallery: a cowboy monkey fights waves of lizards up the street, then Big Gat the gator. The player aims by pointing their arm at the TV and shoots with OK. Launch when the viewer wants a shooting game, a Wild West or cowboy game, an action game, or something silly to play on their own.",
+  "guide": "You are the town's announcer. The player aims with their arm and presses OK to shoot. Keep lines short, and call the tools only when asked. Use the Lives, Wave, Score and Big Gat's health readouts on screen when talking about the fight.",
+  "art": {
+    "poster": "/little/poster.png",
+    "icon": "/little/icon.png",
+    "tint": "#d6a544"
+  },
+  "capabilities": [
+    {
+      "name": "sense.motion",
+      "reason": "Aim the gun by pointing with your arm. The camera tracks your body's position, and no video reaches the game."
+    },
+    {
+      "name": "sense.pose",
+      "reason": "Dodge by stepping left and right, and duck by crouching. The camera reads your body's position, and no video reaches the game."
+    },
+    {
+      "name": "media.camera",
+      "reason": "Show players a live mirror of themselves beside the game, when they turn it on."
+    }
+  ],
+  "tools": [
+    {
+      "name": "start_rush",
+      "description": "Start the game: a one-player fight against waves of lizards and then a boss. Use when the viewer asks to play, start, begin, or fight.",
+      "authority": "mutate",
+      "params": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "open_outfits",
+      "description": "Open the outfits screen from the main menu, where the viewer buys and picks gun skins with their coins. Use when they ask about guns, skins, outfits, the shop, or what their coins can buy.",
+      "authority": "mutate",
+      "params": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "open_settings",
+      "description": "Open the settings screen from the main menu. Use when the viewer asks for settings or options. It doesn't change any setting: the viewer does that on the screen.",
+      "authority": "mutate",
+      "params": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "equip_gun",
+      "description": "Put a gun the viewer already owns in their hand, on the outfits screen. Use when they ask to use or switch to a particular gun they own. It can't buy anything.",
+      "authority": "mutate",
+      "params": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": ["revolver", "golden_revolver", "ghost_revolver", "pistol", "golden_pistol", "tommy", "golden_tommy"],
+            "description": "Which gun. Each one's id is on its card on the outfits screen."
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "quit",
+      "description": "Leave the current fight, or the screen they're on, and go back to the main menu. Use when the viewer asks to stop, quit, or go back to the menu.",
+      "authority": "mutate",
+      "params": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+node_modules
+# The phone page's local self-signed certificate
+.certs
+dist
+*.local
+.DS_Store
+.vercel
+
+# Local copy of a private package tarball
+little-cli-download/
+
+.vercel
+.env*.local
